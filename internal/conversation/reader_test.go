@@ -437,3 +437,67 @@ func TestClaudeConversationReadForRejectsProjectDirectoryEscape(t *testing.T) {
 		t.Fatalf("page = %#v, want an escaping project symlink rejected", page)
 	}
 }
+
+func TestPrimeConversationIsSupportedAndLocatedFlat(t *testing.T) {
+	reader, home := testReader(t)
+	t.Setenv(agentroots.PrimeListEnv, "")
+	t.Setenv("PRIME_AGENT_DIR", "")
+	if !Supported("prime-agent") || !Supported("primeagent") {
+		t.Fatal("prime-agent must be a supported conversation provider")
+	}
+	sessionID := "01a06311-0b5a-7492-b941-8f028e193050"
+	path := filepath.Join(home, ".prime", "agent", "sessions", sessionID+".jsonl")
+	writeRows(t, path,
+		map[string]any{"type": "session", "version": 3, "id": sessionID, "cwd": "/workspace"},
+		map[string]any{"type": "session_info", "id": "s1", "name": "aop-3398"},
+		map[string]any{"type": "message", "id": "u1", "timestamp": "2026-09-02T17:00:00Z", "message": map[string]any{"role": "user", "content": []any{map[string]any{"type": "text", "text": "use thunderherd"}}}},
+		map[string]any{"type": "message", "id": "a1", "timestamp": "2026-09-02T17:00:01Z", "message": map[string]any{"role": "assistant", "content": []any{
+			map[string]any{"type": "thinking", "thinking": "hidden"},
+			map[string]any{"type": "text", "text": "on it"},
+			map[string]any{"type": "toolCall", "id": "call1", "name": "bash", "arguments": map[string]any{"command": "ls"}},
+		}}},
+		map[string]any{"type": "message", "id": "t1", "message": map[string]any{"role": "toolResult", "toolCallId": "call1", "content": []any{map[string]any{"type": "text", "text": "file.txt"}}}},
+		map[string]any{"type": "custom_message", "id": "c1", "customType": "agent_message", "display": true, "content": "PROGRESS AOP-4883: plumbing done"},
+		map[string]any{"type": "custom_message", "id": "c2", "customType": "ipython_state_restored", "display": false, "content": "not shown"},
+		map[string]any{"type": "agent_status", "id": "st", "status": "working"},
+	)
+	page, err := reader.Read("prime-agent", sessionID, "", 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !page.Available {
+		t.Fatalf("page unavailable: %s (%s)", page.Reason, page.ReasonCode)
+	}
+	if page.Total != 3 {
+		t.Fatalf("entries = %#v, want user, assistant, displayed custom message", page.Entries)
+	}
+	if page.Entries[0].Role != "user" || page.Entries[0].Text != "use thunderherd" {
+		t.Fatalf("user entry = %#v", page.Entries[0])
+	}
+	if page.Entries[1].Role != "assistant" || page.Entries[1].Text != "on it" {
+		t.Fatalf("assistant entry = %#v", page.Entries[1])
+	}
+	if len(page.Entries[1].Tools) != 1 || page.Entries[1].Tools[0].Name != "bash" || page.Entries[1].Tools[0].Output != "file.txt" {
+		t.Fatalf("tool activity = %#v", page.Entries[1].Tools)
+	}
+	if page.Entries[2].Text != "[agent_message] PROGRESS AOP-4883: plumbing done" {
+		t.Fatalf("custom message entry = %#v", page.Entries[2])
+	}
+
+	byPath, err := reader.Read("prime-agent", path, "", 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if byPath.Total != 3 {
+		t.Fatalf("read by sessionFile path: entries = %#v", byPath.Entries)
+	}
+
+	outside := filepath.Join(t.TempDir(), "outside.jsonl")
+	writeRows(t, outside, map[string]any{"type": "message", "message": map[string]any{"role": "user", "content": "outside"}})
+	if page, err := reader.Read("prime-agent", outside, "", 80); err != nil || page.Available {
+		t.Fatalf("path outside the prime session root was served: %#v %v", page, err)
+	}
+	if page, err := reader.Read("prime-agent", "not-a-uuid", "", 80); err != nil || page.Available {
+		t.Fatalf("non-uuid session id was served: %#v %v", page, err)
+	}
+}

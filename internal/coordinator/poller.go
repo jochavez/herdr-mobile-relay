@@ -214,6 +214,7 @@ func (p *Poller) agentsFromTopology(panes []herdr.Pane, tabs []herdr.Tab) []*Age
 			PaneRevision:    pane.Revision,
 			ScrollMaxOffset: pane.Scroll.MaxOffsetFromBottom,
 			ForegroundCwd:   pane.ForegroundCwd,
+			TerminalTitle:   pane.TerminalTitle,
 		})
 	}
 	return agents

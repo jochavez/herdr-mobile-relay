@@ -36,6 +36,7 @@ import (
 	"github.com/0cv/herdr-mobile-relay/internal/history"
 	"github.com/0cv/herdr-mobile-relay/internal/noecho"
 	"github.com/0cv/herdr-mobile-relay/internal/panesize"
+	"github.com/0cv/herdr-mobile-relay/internal/primeagent"
 	"github.com/0cv/herdr-mobile-relay/internal/profiles"
 	"github.com/0cv/herdr-mobile-relay/internal/protocol"
 	"github.com/0cv/herdr-mobile-relay/internal/push"
@@ -95,6 +96,7 @@ type Server struct {
 	sessions         *session.Resolver
 	historyM         *history.Manager
 	conversationM    *conversation.Reader
+	prime            *primeagent.Resolver
 	profiles         *profiles.Resolver
 	webH             *web.Handler
 	herdrC           *herdr.Client
@@ -228,6 +230,7 @@ func New(cfg *config.Config, version, revision string, logger *slog.Logger) *Ser
 		sessions:            sessResolver,
 		historyM:            histManager,
 		conversationM:       conversationReader,
+		prime:               primeagent.NewResolver(),
 		updateM:             relayupdate.NewManager(cfg.ReleaseRoot, cfg.RuntimeDir, cfg.HerdrBin, version, revision, healthURL),
 		appDeployM:          appdeploy.NewManager(cfg.RuntimeDir, cfg.WebRoot, version, revision),
 		uploadM:             uploadManager,
@@ -487,6 +490,22 @@ func (s *Server) resolveAgentSessionName(agent *coordinator.AgentState) {
 	// sole-transcript heuristic, inventing a title over a conversation view
 	// that Reader.Read reports as unavailable.
 	sessionID := strings.TrimSpace(agent.Session)
+	// herdr has no profile for Prime Agent, so the pane's agent_session is
+	// always empty for it. Ask the Prime daemon instead: the session is named
+	// in the pane's terminal title, and a worker's worktree cwd is unique.
+	if sessionID == "" && s.prime != nil && primeagent.IsPrime(agent.Agent) {
+		name := primeagent.NameFromTitle(agent.TerminalTitle)
+		if name == "" {
+			name = strings.TrimSpace(agent.Name)
+		}
+		cwd := agent.ForegroundCwd
+		if cwd == "" {
+			cwd = agent.Cwd
+		}
+		if session, ok := s.prime.Lookup(context.Background(), name, cwd); ok {
+			sessionID = session.ID
+		}
+	}
 	agent.SessionID = sessionID
 	// AgentSessionID is the wire copy of SessionID. SessionID itself is
 	// json:"-", and the agents broadcast deep-copies snapshots through JSON,

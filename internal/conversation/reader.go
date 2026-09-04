@@ -21,14 +21,17 @@ import (
 )
 
 const (
-	maxConversationBytes    = 16 * 1024 * 1024
-	maxEntryBytes           = 128 * 1024
-	defaultPageSize         = 80
-	maxPageSize             = 200
-	locationCacheTTL        = 60 * time.Second
-	locationMissTTL         = 5 * time.Second
-	maxLocationCacheEntries = 2048
-	maxOMOCacheEntries      = 8
+	maxConversationBytes = 16 * 1024 * 1024
+	// Prime Agent conductors run for days and their transcripts pass 16 MiB;
+	// the phone asks for the whole conversation, so the tail window is wider.
+	maxPrimeConversationBytes = 64 * 1024 * 1024
+	maxEntryBytes             = 128 * 1024
+	defaultPageSize           = 80
+	maxPageSize               = 200
+	locationCacheTTL          = 60 * time.Second
+	locationMissTTL           = 5 * time.Second
+	maxLocationCacheEntries   = 2048
+	maxOMOCacheEntries        = 8
 )
 
 var canonicalSessionID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
@@ -103,10 +106,13 @@ func (r *Reader) piRoots() []string { return agentroots.Pi(r.home) }
 
 func (r *Reader) ompRoots() []string { return agentroots.OMP(r.home) }
 
+func (r *Reader) primeRoots() []string { return agentroots.Prime(r.home) }
+
 func Supported(agent string) bool {
 	switch normalizedAgent(agent) {
 	case "claude", "claudecode", "qoder", "qodercli", "codex", "openaicodex",
-		"pi", "picodingagent", "omp", "ohmypi", "opencode", "omo", "ohmyopencode":
+		"pi", "picodingagent", "omp", "ohmypi", "opencode", "omo", "ohmyopencode",
+		"primeagent", "prime":
 		return true
 	default:
 		return false
@@ -149,7 +155,11 @@ func (r *Reader) read(agent, cwd, sessionID, before string, limit int) (Page, er
 	if location.Path == "" {
 		return unavailableCode("invalid_session", "No conversation log is available for this session."), nil
 	}
-	text, clipped, err := loadTail(location.Path, maxConversationBytes)
+	tailBytes := int64(maxConversationBytes)
+	if isPrime(agent) {
+		tailBytes = maxPrimeConversationBytes
+	}
+	text, clipped, err := loadTail(location.Path, tailBytes)
 	if err != nil {
 		return Page{}, fmt.Errorf("read conversation log: %w", err)
 	}
@@ -260,9 +270,46 @@ func (r *Reader) locate(agent, cwd, sessionID string) Location {
 		return resolvePathOrSession(r.piRoots(), sessionID, "_")
 	case "omp", "ohmypi":
 		return resolvePathOrSession(r.ompRoots(), sessionID, "_")
+	case "primeagent", "prime":
+		return resolvePrimeSession(r.primeRoots(), sessionID)
 	default:
 		return Location{}
 	}
+}
+
+func isPrime(agent string) bool {
+	switch normalizedAgent(agent) {
+	case "primeagent", "prime":
+		return true
+	default:
+		return false
+	}
+}
+
+// resolvePrimeSession accepts either the absolute transcript path the Prime
+// Agent daemon reports (`sessionFile`) or a bare session id, and confines
+// both to the configured roots exactly as the Pi locator does. Prime keeps
+// its transcripts flat - <root>/<id>.jsonl - so there is no project directory
+// to descend into.
+func resolvePrimeSession(roots []string, sessionID string) Location {
+	if filepath.IsAbs(sessionID) && strings.HasSuffix(strings.ToLower(sessionID), ".jsonl") {
+		for _, root := range roots {
+			if path := containedRegularFile(sessionID, root); path != "" {
+				return Location{Path: path, Root: root}
+			}
+		}
+		return Location{}
+	}
+	if !canonicalSessionID.MatchString(sessionID) {
+		return Location{}
+	}
+	filename := strings.ToLower(sessionID) + ".jsonl"
+	for _, root := range roots {
+		if path := containedRegularFile(filepath.Join(root, filename), root); path != "" {
+			return Location{Path: path, Root: root}
+		}
+	}
+	return Location{}
 }
 
 func safeSessionID(value string) bool {
@@ -533,6 +580,8 @@ func parseTranscript(agent, text string) []Entry {
 			role, body = parseCodexRecord(record)
 		case "pi", "picodingagent", "omp", "ohmypi":
 			role, body = parsePiRecord(record)
+		case "primeagent", "prime":
+			role, body = parsePrimeRecord(record)
 		}
 		body = sanitizeText(body)
 		if role == "" && len(calls) > 0 {
@@ -585,7 +634,7 @@ func parseToolActivity(agent string, record map[string]any) ([]ToolActivity, []t
 				failed: payload["is_error"] == true,
 			}}
 		}
-	case "pi", "picodingagent", "omp", "ohmypi":
+	case "pi", "picodingagent", "omp", "ohmypi", "primeagent", "prime":
 		if stringValue(record["type"]) != "message" {
 			return nil, nil
 		}
@@ -773,6 +822,32 @@ func parsePiRecord(record map[string]any) (string, string) {
 		return "", ""
 	}
 	return role, textBlocks(message["content"])
+}
+
+// parsePrimeRecord reads Prime Agent's transcript, which is the Pi session
+// format plus `custom_message` records. Those carry what makes a Prime
+// conductor's conversation legible - inter-agent messages from its workers,
+// child-terminal notices, refinement outcomes - and Prime itself shows them in
+// the terminal when `display` is set, so the phone shows the same ones.
+func parsePrimeRecord(record map[string]any) (string, string) {
+	switch stringValue(record["type"]) {
+	case "message":
+		return parsePiRecord(record)
+	case "custom_message":
+		if record["display"] != true {
+			return "", ""
+		}
+		content := textValue(record["content"])
+		if content == "" {
+			return "", ""
+		}
+		if kind := stringValue(record["customType"]); kind != "" {
+			return "assistant", "[" + kind + "] " + content
+		}
+		return "assistant", content
+	default:
+		return "", ""
+	}
 }
 
 func textBlocks(value any) string {

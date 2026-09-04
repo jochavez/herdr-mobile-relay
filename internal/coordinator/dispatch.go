@@ -332,6 +332,23 @@ func (d *Dispatcher) HandleTopologyAdmitted(
 	return result
 }
 
+// promptViaPaneText names the agents herdr cannot prompt through its live-agent
+// facade. Qoder needs the explicit Enter; Prime Agent is not one of herdr's
+// profiled kinds at all, so `agent prompt` refuses it as "not an active named
+// agent" while `pane send-text` reaches its composer normally.
+func promptViaPaneText(agent string) bool {
+	return isQoderAgent(agent) || isPrimeAgent(agent)
+}
+
+func isPrimeAgent(agent string) bool {
+	switch strings.ToLower(strings.TrimSpace(agent)) {
+	case "prime-agent", "primeagent", "prime":
+		return true
+	default:
+		return false
+	}
+}
+
 func isQoderAgent(agent string) bool {
 	switch strings.ToLower(strings.TrimSpace(agent)) {
 	case "qoder", "qodercli":
@@ -357,7 +374,7 @@ func (d *Dispatcher) handlePrompt(ctx context.Context, receivedAt time.Time, req
 	}
 	requiresEnter := false
 	if agent, ok := d.state.Agent(paneID); ok {
-		requiresEnter = isQoderAgent(agent.Agent)
+		requiresEnter = promptViaPaneText(agent.Agent)
 	}
 	result := d.schedule(ctx, ScheduleOptions{
 		Command: d.command(ctx, receivedAt, requestID, CommandPrompt, paneID, commandDeadline, text),

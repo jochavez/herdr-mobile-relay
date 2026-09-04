@@ -716,3 +716,26 @@ func writeCodexRollout(t *testing.T, codexDir, sessionID string) {
 		t.Fatal(err)
 	}
 }
+
+func TestPrimeSessionNameComesFromSessionInfo(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv(agentroots.PrimeListEnv, "")
+	t.Setenv("PRIME_AGENT_DIR", "")
+	sessionID := "01a05d8a-238b-7469-9078-706014ce4015"
+	sessionDir := filepath.Join(home, ".prime", "agent", "sessions")
+	if err := os.MkdirAll(sessionDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sessionPath := filepath.Join(sessionDir, sessionID+".jsonl")
+	content := "{\"type\":\"session\",\"version\":3,\"id\":\"" + sessionID + "\",\"cwd\":\"/workspace\"}\n" +
+		"{\"type\":\"session_info\",\"name\":\"spike-image-attach-conductor\"}\n" +
+		"{\"type\":\"session_info\",\"name\":\"aop-3398-conductor\"}\n"
+	if err := os.WriteFile(sessionPath, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, agent := range []string{"prime-agent", "primeagent"} {
+		if got := NewResolver(home).SessionName(agent, "/workspace", sessionID); got != "aop-3398-conductor" {
+			t.Errorf("agent %q session name = %q, want %q", agent, got, "aop-3398-conductor")
+		}
+	}
+}

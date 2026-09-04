@@ -97,7 +97,7 @@ func isOMPSessionAgent(agent string) bool {
 
 func isPiSessionAgent(agent string) bool {
 	switch strings.ToLower(strings.TrimSpace(agent)) {
-	case "pi", "pi-coding-agent":
+	case "pi", "pi-coding-agent", "prime-agent", "primeagent", "prime":
 		return true
 	default:
 		return false

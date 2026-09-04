@@ -56,6 +56,7 @@ Every other case needs to be named explicitly:
 | `HERDR_QODER_CONFIG_DIRS` | `~/.qoder` | none |
 | `HERDR_CODEX_CONFIG_DIRS` | `~/.codex` | `CODEX_HOME` |
 | `HERDR_PI_CONFIG_DIRS` | `~/.pi/agent` | `PI_CODING_AGENT_DIR` |
+| `HERDR_PRIME_CONFIG_DIRS` | `~/.prime/agent` | `PRIME_AGENT_DIR` |
 | `HERDR_OMP_CONFIG_DIRS` | `~/.omp/agent` | `PI_CODING_AGENT_DIR` (Oh My Pi is a Pi fork and shares Pi's default) |
 | `HERDR_OPENCODE_DATA_DIRS` | `${XDG_DATA_HOME:-~/.local/share}/opencode` | none |
 | `HERDR_OMO_CONFIG_DIRS` | `~/.senpi/agent` plus supported `~/.omo` layouts | `OMO_CODING_AGENT_DIR`, `SENPI_CODING_AGENT_DIR`, `PI_CODING_AGENT_DIR` |

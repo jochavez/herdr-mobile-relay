@@ -55,6 +55,7 @@ type AgentState struct {
 	StateRevision                int64                  `json:"pane_revision,omitempty"`
 	ScrollMaxOffset              int                    `json:"-"`
 	ForegroundCwd                string                 `json:"-"`
+	TerminalTitle                string                 `json:"-"`
 }
 
 type TransitionCallback func(paneID, agent, project, status string, revision int64)

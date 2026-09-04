@@ -739,3 +739,19 @@ func TestProfileCacheRefreshesDanglingSymlinkAfterExpiry(t *testing.T) {
 		t.Fatalf("refreshed roots = %v, want mounted profile %q", got, wantProfile)
 	}
 }
+
+func TestPrimeRootsDefaultAndOverride(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv(PrimeListEnv, "")
+	t.Setenv("PRIME_AGENT_DIR", "")
+	want := []string{filepath.Join(home, ".prime", "agent", "sessions")}
+	if got := Prime(home); !slices.Equal(got, want) {
+		t.Fatalf("Prime(%q) = %v, want %v", home, got, want)
+	}
+	override := filepath.Join(t.TempDir(), "prime-agent-dir")
+	t.Setenv("PRIME_AGENT_DIR", override)
+	want = []string{filepath.Join(override, "sessions"), filepath.Join(home, ".prime", "agent", "sessions")}
+	if got := Prime(home); !slices.Equal(got, want) {
+		t.Fatalf("Prime(%q) with PRIME_AGENT_DIR = %v, want %v", home, got, want)
+	}
+}

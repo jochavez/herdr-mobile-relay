@@ -174,6 +174,7 @@ type Pane struct {
 		MaxOffsetFromBottom int `json:"max_offset_from_bottom"`
 	} `json:"scroll"`
 	ForegroundCwd string `json:"foreground_cwd"`
+	TerminalTitle string `json:"terminal_title"`
 	Session       string `json:"-"`
 	SessionRaw    struct {
 		Value string `json:"value"`

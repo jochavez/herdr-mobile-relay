@@ -55,6 +55,7 @@ const (
 	OMPListEnv      = "HERDR_OMP_CONFIG_DIRS"
 	OpenCodeListEnv = "HERDR_OPENCODE_DATA_DIRS"
 	OMOListEnv      = "HERDR_OMO_CONFIG_DIRS"
+	PrimeListEnv    = "HERDR_PRIME_CONFIG_DIRS"
 )
 
 // Claude reports the transcript roots for Claude Code, honouring
@@ -133,6 +134,14 @@ func Pi(home string) []string {
 	configRoot := filepath.Join(home, ".pi")
 	return resolve(home, PiListEnv, "PI_CODING_AGENT_DIR", filepath.Join(configRoot, "agent"), "sessions",
 		profileAgentDirs(configRoot)...)
+}
+
+// Prime reports the session roots for Prime Agent, a Pi-family agent whose
+// ~/.prime/agent mirrors ~/.pi/agent and whose transcripts are flat
+// <session-id>.jsonl files under the sessions leaf. PRIME_AGENT_DIR overrides
+// the agent directory the way PI_CODING_AGENT_DIR does for Pi.
+func Prime(home string) []string {
+	return resolve(home, PrimeListEnv, "PRIME_AGENT_DIR", filepath.Join(home, ".prime", "agent"), "sessions")
 }
 
 // OMP reports the session roots for Oh My Pi, including the agent directory of

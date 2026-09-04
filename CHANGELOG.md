@@ -3,6 +3,23 @@
 Notable user-facing changes to Herdr Mobile Relay are documented here. The
 project follows [Semantic Versioning](https://semver.org/).
 
+## [0.21.0] - 2026-09-04
+
+### Added
+
+- Prime Agent support. herdr detects `prime-agent` from its terminal title but
+  has no profile for it, so `agent prompt` refused every message ("not an
+  active named agent") and the pane never reported a conversation session. The
+  relay now prompts Prime through the pane (`send-text` + Enter, the path Qoder
+  already used), and resolves the session itself by asking the Prime daemon
+  (`prime-agent list --json`) - matching the session name in the pane's
+  terminal title, or a worker's unique worktree directory. Conversation history
+  reads Prime's transcript, which is the Pi session format plus displayed
+  `custom_message` records (inter-agent messages, child-terminal notices), from
+  `~/.prime/agent/sessions/<id>.jsonl`; `HERDR_PRIME_CONFIG_DIRS` and
+  `PRIME_AGENT_DIR` override the root. Prime conductors run for days, so their
+  history window is 64 MiB rather than 16.
+
 ## [0.20.6] - 2026-09-03
 
 ### Changed
