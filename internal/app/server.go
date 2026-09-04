@@ -2765,7 +2765,7 @@ func (s *Server) classifyPaneResponse(message, response map[string]any) map[stri
 	if classification.Interaction != nil || !stitchesTerminalHistory(agent) {
 		return response
 	}
-	if viewportOnly, _ := response["viewport_only"].(bool); viewportOnly {
+	if settling, _ := response["resize_settling"].(bool); settling {
 		return response
 	}
 	historyLimit := messageInt(message["lines"], 30)

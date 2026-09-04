@@ -3,6 +3,19 @@
 Notable user-facing changes to Herdr Mobile Relay are documented here. The
 project follows [Semantic Versioning](https://semver.org/).
 
+## [0.21.2] - 2026-09-04
+
+### Changed
+
+- Leased terminal frames carry stitched history. A controller phone leases the
+  pane at its own width (Resize Session), and the relay served those reads as
+  the live screen only, so the terminal view could never scroll back while the
+  lease was held. Settled leased frames are now merged into the pane's stitched
+  history like unleased reads; frames read within the three-second window after
+  a real width change are still served clean, so a redrawing TUI cannot pollute
+  the history. Frames captured at phone width and at desktop width do not always
+  align, so a block can appear re-wrapped or repeated after the width changes.
+
 ## [0.21.1] - 2026-09-04
 
 ### Fixed

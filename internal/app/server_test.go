@@ -618,7 +618,7 @@ func TestPaneWatchUpdateSendsResizeSettledDelta(t *testing.T) {
 	}
 }
 
-func TestPreparePaneResponsePreservesHistoryDuringResizeSession(t *testing.T) {
+func TestPreparePaneResponsePreservesHistoryWhileResizeSettles(t *testing.T) {
 	s := testServerWithCacheDir(t.TempDir())
 	s.state.CommitInventory([]*coordinator.AgentState{{
 		PaneID: "pane-1", Agent: "claude", Status: "idle",
@@ -629,7 +629,7 @@ func TestPreparePaneResponsePreservesHistoryDuringResizeSession(t *testing.T) {
 	response := map[string]any{
 		"type": "pane_content", "pane_id": "pane-1",
 		"content": "current 1\ncurrent 2", "format": "ansi",
-		"truncated": false, "viewport_only": true,
+		"truncated": false, "viewport_only": true, "resize_settling": true,
 	}
 	s.preparePaneResponse(
 		map[string]any{"pane_id": "pane-1", "lines": 100, "terminal_columns": 59},
