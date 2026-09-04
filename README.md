@@ -6,7 +6,7 @@ Control [Herdr](https://herdr.dev) agents from your phone. Each Linux or macOS
 computer runs its own relay; the phone connects to them and merges every agent
 into one installable web app.
 
-**Current version:** [`0.21.3`](https://github.com/jochavez/herdr-mobile-relay/releases/tag/v0.21.3) · [Changelog](CHANGELOG.md)
+**Current version:** [`0.21.4`](https://github.com/jochavez/herdr-mobile-relay/releases/tag/v0.21.4) · [Changelog](CHANGELOG.md)
 
 > [!IMPORTANT]
 > Native Windows is not supported. WSL2 may work but is not tested.
