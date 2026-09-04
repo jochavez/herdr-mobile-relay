@@ -34,6 +34,7 @@ type Config struct {
 	SocketPath     string
 	PollInterval   float64
 	RuntimeDir     string
+	ExtraRoots     []string
 	LogFormat      string
 	ReleaseRoot    string
 	ServiceName    string
@@ -97,6 +98,7 @@ func Load() (*Config, error) {
 		cfg.GatewayURL = cfg.GatewayURLs[0]
 	}
 	cfg.GatewaySelection = parseGatewaySelection(os.Getenv("HERDR_GATEWAY_SELECTION"))
+	cfg.ExtraRoots = parseExtraRoots(os.Getenv("HERDR_RELAY_EXTRA_ROOTS"))
 
 	cfg.ConfigHome = envOr("XDG_CONFIG_HOME", filepath.Join(homeDir(), ".config"))
 	cacheHome := envOr("XDG_CACHE_HOME", filepath.Join(homeDir(), ".cache"))
@@ -304,4 +306,21 @@ func envFloatOr(key string, fallback float64) float64 {
 		}
 	}
 	return fallback
+}
+
+// parseExtraRoots reads HERDR_RELAY_EXTRA_ROOTS: absolute directories,
+// separated by ":" or ",", that the phone may browse and launch agents in
+// besides the home directory. Relative and empty entries are dropped.
+func parseExtraRoots(value string) []string {
+	var roots []string
+	seen := map[string]bool{}
+	for _, raw := range strings.FieldsFunc(value, func(r rune) bool { return r == ':' || r == ',' }) {
+		root := filepath.Clean(strings.TrimSpace(raw))
+		if root == "." || !filepath.IsAbs(root) || seen[root] {
+			continue
+		}
+		seen[root] = true
+		roots = append(roots, root)
+	}
+	return roots
 }

@@ -136,3 +136,26 @@ stops leasing the computer's pane width until verification succeeds.
   the `gateway` registration state on the hybrid transport.
 - `GET /readyz` — HTTP 200 once the listener and a Herdr inventory are ready,
   HTTP 503 before that.
+
+## Browse and launch roots
+
+The phone's directory browser and the Start Agent form are confined to the
+relay user's home directory: a path outside it is rewritten to home, and a
+launch aimed outside it is refused. `HERDR_RELAY_EXTRA_ROOTS` in `relay.env`
+names additional absolute directories, separated by `:` or `,`, that the phone
+may browse and launch agents in, the root itself included. Each root appears as
+an entry in the home listing and climbs back to home. Nothing outside home and
+these roots is ever accepted, so keep the list to the checkouts you would hand
+the phone anyway; a container whose project lives at `/workspace` beside the
+home directory is the typical case.
+
+Agents offered by Start Agent come from the relay's profiles: the built-ins it
+finds on `PATH` plus `~/.config/herdr/agent-profiles.ini`, for example:
+
+```ini
+[profiles]
+prime-agent = Prime Agent
+```
+
+A profile whose agent herdr has no kind for is launched with `herdr pane run`
+in the new pane, and the relay waits for herdr to detect the agent there.

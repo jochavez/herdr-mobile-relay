@@ -3,6 +3,24 @@
 Notable user-facing changes to Herdr Mobile Relay are documented here. The
 project follows [Semantic Versioning](https://semver.org/).
 
+## [0.21.4] - 2026-09-04
+
+### Added
+
+- `HERDR_RELAY_EXTRA_ROOTS`: absolute directories outside the home directory,
+  separated by `:` or `,`, that the phone may browse and start agents in. The
+  directory browser offers each root from the home listing and climbs back to
+  home from it; a launch may target the root itself or anything below it. Nothing
+  outside home and these roots is ever accepted. A workspace mounted beside the
+  home directory (a container's `/workspace`) needs this, or every launch aimed
+  at it is rewritten to home and refused.
+
+### Fixed
+
+- Directory listings always carry an array. A directory without visible
+  subdirectories, or one the relay could not read, serialized `directories` as
+  `null`, and the phone reported "Relay returned an invalid directory listing".
+
 ## [0.21.3] - 2026-09-04
 
 ### Changed

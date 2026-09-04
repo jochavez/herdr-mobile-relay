@@ -108,6 +108,14 @@ func (d *Dispatcher) SetProfiles(resolver *profiles.Resolver) {
 	d.lifecycle = NewLifecycle(d.herdr, resolver)
 }
 
+// SetExtraRoots forwards the operator's extra launch roots to the lifecycle;
+// call it after SetProfiles, which creates the lifecycle.
+func (d *Dispatcher) SetExtraRoots(roots []string) {
+	if d.lifecycle != nil {
+		d.lifecycle.SetExtraRoots(roots)
+	}
+}
+
 func (d *Dispatcher) CancelInflight() {
 	d.scheduler.CancelInflight()
 }

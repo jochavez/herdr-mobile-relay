@@ -230,3 +230,14 @@ func TestLoadRejectsInvalidSecondGatewayURL(t *testing.T) {
 		t.Errorf("error = %v, want the offending entry named", err)
 	}
 }
+
+func TestLoadExtraRoots(t *testing.T) {
+	t.Setenv("HERDR_RELAY_EXTRA_ROOTS", "/workspace:relative: /srv/data/ ::/workspace")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.ExtraRoots) != 2 || cfg.ExtraRoots[0] != "/workspace" || cfg.ExtraRoots[1] != "/srv/data" {
+		t.Fatalf("ExtraRoots = %v, want [/workspace /srv/data]", cfg.ExtraRoots)
+	}
+}

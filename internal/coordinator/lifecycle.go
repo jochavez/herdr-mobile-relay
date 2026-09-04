@@ -52,9 +52,17 @@ type StartResult struct {
 }
 
 type Lifecycle struct {
-	herdr    *herdr.Client
-	profiles *profiles.Resolver
-	home     string
+	herdr      *herdr.Client
+	profiles   *profiles.Resolver
+	home       string
+	extraRoots []string
+}
+
+// SetExtraRoots names absolute directories outside home that agents may be
+// launched in, including the roots themselves. The relay operator opts into
+// each one; nothing outside home and these roots is ever accepted.
+func (l *Lifecycle) SetExtraRoots(roots []string) {
+	l.extraRoots = append([]string(nil), roots...)
 }
 
 func NewLifecycle(client *herdr.Client, resolver *profiles.Resolver) *Lifecycle {
@@ -273,6 +281,13 @@ func (l *Lifecycle) ResolveCwd(raw string) (string, error) {
 	if err != nil {
 		return "", errors.New("cwd is not an accessible directory inside the home directory")
 	}
+	if l.insideExtraRoot(resolved) {
+		info, statErr := os.Stat(resolved)
+		if statErr != nil || !info.IsDir() {
+			return "", errors.New("cwd is not an accessible directory")
+		}
+		return resolved, nil
+	}
 	relative, err := filepath.Rel(resolvedHome, resolved)
 	if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
 		return "", errors.New("cwd must be inside the home directory")
@@ -295,6 +310,26 @@ func (l *Lifecycle) ResolveCwd(raw string) (string, error) {
 		return "", errors.New("cwd is not an accessible directory")
 	}
 	return resolved, nil
+}
+
+func (l *Lifecycle) insideExtraRoot(resolved string) bool {
+	for _, raw := range l.extraRoots {
+		if raw == "" || !filepath.IsAbs(raw) {
+			continue
+		}
+		root, err := filepath.EvalSymlinks(filepath.Clean(raw))
+		if err != nil {
+			continue
+		}
+		if resolved == root {
+			return true
+		}
+		relative, err := filepath.Rel(root, resolved)
+		if err == nil && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // SelectWorkspaceForCwd freezes the label/exclusive/majority heuristic used by

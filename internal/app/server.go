@@ -581,6 +581,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	s.dispatcher = coordinator.NewDispatcher(s.herdrC, s.state, s.journal, s.logger)
 	s.dispatcher.SetProfiles(s.profiles)
+	s.dispatcher.SetExtraRoots(s.cfg.ExtraRoots)
 	s.dispatcher.SetBroadcast(s.broadcastCommitted)
 	s.dispatcher.SetWakePoll(func() { s.poller.Wake() })
 	// The handshake has no "profiles loading" state. Resolve integrations
@@ -1031,7 +1032,7 @@ func (s *Server) Run(ctx context.Context) error {
 			requestID, _ := msg["request_id"].(string)
 			path, _ := msg["path"].(string)
 			home, _ := os.UserHomeDir()
-			listing := fsutil.ListDirectories(path, home)
+			listing := fsutil.ListDirectoriesWithin(path, home, s.cfg.ExtraRoots)
 			s.sendCommandResult(client, requestID, "list_directories", true, "completed", "", "", listing)
 		case "list_slash_commands":
 			requestID, _ := msg["request_id"].(string)
