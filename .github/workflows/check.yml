@@ -1,3 +1,5 @@
+# Fork note: workflows inherited at fork time stayed inert on push until the fork
+# owner committed to them; this line is that commit.
 name: check
 
 on:
