@@ -1345,7 +1345,7 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 		s.syncHistoryPanes(agents)
 		for _, a := range agents {
-			if isClaudeLike(a.Agent) && (a.Status == "working" || a.Status == "blocked") {
+			if stitchesTerminalHistory(a.Agent) && (a.Status == "working" || a.Status == "blocked") {
 				s.scheduleHistoryCapture(ctx, a.PaneID)
 			}
 		}
@@ -2072,7 +2072,7 @@ func (s *Server) captureHistoryLoop(ctx context.Context) {
 			return
 		case <-ticker.C:
 			for _, agent := range s.state.Snapshot() {
-				if !isClaudeLike(agent.Agent) || (agent.Status != "working" && agent.Status != "blocked") {
+				if !stitchesTerminalHistory(agent.Agent) || (agent.Status != "working" && agent.Status != "blocked") {
 					continue
 				}
 				s.scheduleHistoryCapture(ctx, agent.PaneID)
@@ -2108,7 +2108,7 @@ func (s *Server) scheduleHistoryCapture(ctx context.Context, paneID string) {
 			return
 		}
 		agent, ok := s.state.Agent(paneID)
-		if !ok || !isClaudeLike(agent.Agent) {
+		if !ok || !stitchesTerminalHistory(agent.Agent) {
 			return
 		}
 		s.historyCaptureMu.Lock()
@@ -2129,7 +2129,7 @@ func (s *Server) scheduleHistoryCapture(ctx context.Context, paneID string) {
 func (s *Server) syncHistoryPanes(agents []*coordinator.AgentState) {
 	active := make(map[string]bool, len(agents))
 	for _, agent := range agents {
-		if isClaudeLike(agent.Agent) {
+		if stitchesTerminalHistory(agent.Agent) {
 			active[agent.PaneID] = true
 		}
 	}
@@ -2183,7 +2183,7 @@ func (s *Server) captureFinishedPane(ctx context.Context, paneID, agent, cwd, se
 	}
 	raw := string(content)
 	completionContent := raw
-	if isClaudeLike(agent) && !question.LayoutHint(raw) {
+	if stitchesTerminalHistory(agent) && !question.LayoutHint(raw) {
 		completionContent = s.historyM.Merge(paneID, raw)
 	}
 	if response := question.LatestCompletedResponse(completionContent); response != "" {
@@ -2202,9 +2202,14 @@ func sameConversationTuple(left, right *coordinator.AgentState) bool {
 		left.Cwd == right.Cwd &&
 		left.SessionID == right.SessionID
 }
-func isClaudeLike(agent string) bool {
+
+// stitchesTerminalHistory reports whether an agent draws a full-screen TUI that
+// redraws in place, leaving herdr no scrollback to read. For those agents the
+// relay stitches successive pane frames into the terminal history it serves,
+// so a phone can scroll back past the visible screen.
+func stitchesTerminalHistory(agent string) bool {
 	lower := strings.ToLower(agent)
-	return strings.Contains(lower, "claude") || strings.Contains(lower, "qoder")
+	return strings.Contains(lower, "claude") || strings.Contains(lower, "qoder") || primeagent.IsPrime(agent)
 }
 
 func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
@@ -2757,9 +2762,7 @@ func (s *Server) classifyPaneResponse(message, response map[string]any) map[stri
 		// commit rows from frames read inside this window as history.
 		response["resize_settling"] = true
 	}
-	agentLower := strings.ToLower(agent)
-	if classification.Interaction != nil ||
-		(!strings.Contains(agentLower, "claude") && !strings.Contains(agentLower, "qoder")) {
+	if classification.Interaction != nil || !stitchesTerminalHistory(agent) {
 		return response
 	}
 	if viewportOnly, _ := response["viewport_only"].(bool); viewportOnly {

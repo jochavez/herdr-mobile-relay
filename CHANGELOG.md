@@ -3,6 +3,18 @@
 Notable user-facing changes to Herdr Mobile Relay are documented here. The
 project follows [Semantic Versioning](https://semver.org/).
 
+## [0.21.1] - 2026-09-04
+
+### Fixed
+
+- Terminal scrollback for Prime Agent panes. Prime draws a full-screen TUI, so
+  herdr holds only the visible screen (about 50 lines) and the Terminal History
+  setting had no effect. The relay now stitches Prime's frames into a persistent
+  terminal history exactly as it does for Claude Code and Qoder, so the phone can
+  scroll back up to the configured line budget. History accumulates from the moment
+  the relay observes a pane; the Conversation view remains the way to read turns
+  from before that.
+
 ## [0.21.0] - 2026-09-04
 
 ### Added
