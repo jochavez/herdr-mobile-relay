@@ -127,6 +127,7 @@ func (s *Server) runPaneWatch(watch *paneWatch, knownFingerprint string) {
 				watch.pending = frame
 			}
 			watch.mu.Unlock()
+			s.logPaneFrame("watch_start", watch.paneID, response, paneWatchDecision(message, acknowledged != nil))
 			if message != nil {
 				s.hub.Send(watch.client, message)
 			}
@@ -196,11 +197,26 @@ func (s *Server) pollPaneWatch(watch *paneWatch) {
 	if message == nil {
 		watch.acknowledged = frame
 		watch.mu.Unlock()
+		s.logPaneFrame("watch_poll", watch.paneID, response, "unchanged")
 		return
 	}
 	watch.pending = frame
 	watch.mu.Unlock()
+	s.logPaneFrame("watch_poll", watch.paneID, response, paneWatchDecision(message, acknowledged != nil))
 	s.hub.Send(watch.client, message)
+}
+
+func paneWatchDecision(message map[string]any, hadAcknowledged bool) string {
+	switch {
+	case message == nil:
+		return "unchanged"
+	case message["type"] == "pane_delta":
+		return "delta"
+	case hadAcknowledged:
+		return "full"
+	default:
+		return "full_initial"
+	}
 }
 
 func (s *Server) readPaneWatchFrame(watch *paneWatch) (map[string]any, *paneWatchFrame) {
@@ -258,14 +274,18 @@ func (s *Server) handlePaneApplied(client *transport.ClientConn, message map[str
 	if watch.pending != nil && watch.pending.contentFingerprint == fingerprint {
 		watch.acknowledged = watch.pending
 		watch.pending = nil
+		settling := watch.acknowledged.resizeSettling
 		watch.mu.Unlock()
+		s.logger.Debug("pane frame", "stage", "ack", "pane_id", paneID, "note", "pending_acknowledged", "resize_settling", settling)
 		return
 	}
 	if watch.acknowledged != nil && watch.acknowledged.contentFingerprint == fingerprint {
 		watch.mu.Unlock()
+		s.logger.Debug("pane frame", "stage", "ack", "pane_id", paneID, "note", "already_acknowledged")
 		return
 	}
 	watch.mu.Unlock()
+	s.logger.Debug("pane frame", "stage", "ack", "pane_id", paneID, "note", "resync")
 	s.hub.Send(client, map[string]any{"type": "pane_resync", "pane_id": paneID, "target": watch.target})
 }
 
@@ -301,6 +321,24 @@ func (s *Server) applyPaneReadLease(message map[string]any) {
 			message["terminal_rows"] = rows
 		}
 	}
+}
+
+// logPaneFrame records one pane-frame decision at debug level: what the relay
+// read (leased, settling, size) and what it did with it. Frames are read only
+// when a probe changes or a resize is settling, so the volume stays low.
+func (s *Server) logPaneFrame(stage, paneID string, response map[string]any, note string) {
+	content, _ := response["content"].(string)
+	viewportOnly, _ := response["viewport_only"].(bool)
+	settling, _ := response["resize_settling"].(bool)
+	truncated, _ := response["truncated"].(bool)
+	fingerprint, _ := response["content_fingerprint"].(string)
+	if len(fingerprint) > 8 {
+		fingerprint = fingerprint[:8]
+	}
+	s.logger.Debug("pane frame",
+		"stage", stage, "pane_id", paneID, "viewport_only", viewportOnly,
+		"resize_settling", settling, "truncated", truncated,
+		"lines", strings.Count(content, "\n")+1, "fingerprint", fingerprint, "note", note)
 }
 
 func paneWatchUpdate(

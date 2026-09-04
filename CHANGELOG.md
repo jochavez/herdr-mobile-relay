@@ -3,6 +3,16 @@
 Notable user-facing changes to Herdr Mobile Relay are documented here. The
 project follows [Semantic Versioning](https://semver.org/).
 
+## [0.21.3] - 2026-09-04
+
+### Changed
+
+- Debug-level diagnostics for pane frames. Each `read_pane` reply, watch start,
+  watch push or skip, and frame acknowledgement now logs the pane, whether the
+  read was leased and still settling, its size and the decision taken, so a
+  phone that shows the live screen instead of the stitched history can be traced
+  from `relay.log` without a client-side capture.
+
 ## [0.21.2] - 2026-09-04
 
 ### Changed

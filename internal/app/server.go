@@ -788,6 +788,8 @@ func (s *Server) Run(ctx context.Context) error {
 			s.sendCommandResult(client, inbound.RequestID, "deploy_app_update", true, "scheduled", "", "", map[string]any{"job": job, "app_deploy": deployState})
 		case "lease_pane_size":
 			columns, rows, leaseErr := s.paneSizeM.Acquire(client.Context(), client.ID(), inbound.PaneID, inbound.Columns, inbound.Rows)
+			s.logger.Debug("pane size lease", "pane_id", inbound.PaneID, "requested_columns", inbound.Columns, "requested_rows", inbound.Rows,
+				"applied_columns", columns, "applied_rows", rows, "error", leaseErr)
 			if leaseErr != nil {
 				s.sendCommandResult(client, inbound.RequestID, "lease_pane_size", false, "failed", leaseErr.Error(), inbound.PaneID, nil)
 				break
@@ -817,9 +819,11 @@ func (s *Server) Run(ctx context.Context) error {
 				resp["target"] = *inbound.Target
 			}
 			if unchanged := unchangedPaneResponse(msg, resp); unchanged != nil {
+				s.logPaneFrame("read_pane", inbound.PaneID, resp, "unchanged")
 				s.hub.Send(client, unchanged)
 				break
 			}
+			s.logPaneFrame("read_pane", inbound.PaneID, resp, "full")
 			s.hub.Send(client, resp)
 		case "watch_pane":
 			s.startPaneWatch(client, msg)
