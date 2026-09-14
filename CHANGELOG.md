@@ -5,12 +5,31 @@ project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-14 (fork)
+
+### Added
+
+- Everything upstream shipped in its 0.20.7 through 0.21.2 releases: Nous
+  Hermes Agent support, on-demand browsing of full file-backed conversations,
+  Claude Code history resolved from a pane's `foreground_cwd` (Git worktrees
+  included), JSON-backed workspace and worktree management, content-addressed
+  web builds, and curated macOS speech voices. See the upstream entries below.
+
 ### Changed
 
 - Synced with upstream [0cv/herdr-mobile-relay](https://github.com/0cv/herdr-mobile-relay)
   through v0.21.2. Upstream numbered its own 0.21.0 to 0.21.2 releases
   independently of this fork; the fork's 0.21.x entries below are marked
-  "(fork)" and the upstream entries follow them.
+  "(fork)" and the upstream entries follow them. The fork now bumps its minor
+  version on every upstream sync so release numbers no longer collide.
+- Prime Agent support, stitched terminal history for leased frames, pane-frame
+  diagnostics and `HERDR_RELAY_EXTRA_ROOTS` are carried forward unchanged and
+  coexist with upstream's Hermes provider and conversation browser.
+
+### Fixed
+
+- A relay test that raced its own shutdown (an inventory poll still in flight
+  when the test cancelled) no longer fails intermittently in CI.
 
 ## [0.21.4] - 2026-09-04 (fork)
 
@@ -1585,7 +1604,8 @@ project follows [Semantic Versioning](https://semver.org/).
 - Release pane-size leases when their WebSocket owner disappears, preventing a
   laptop terminal from remaining narrowed.
 
-[Unreleased]: https://github.com/0cv/herdr-mobile-relay/compare/v0.21.2...HEAD
+[Unreleased]: https://github.com/jochavez/herdr-mobile-relay/compare/v0.22.0...HEAD
+[0.22.0]: https://github.com/jochavez/herdr-mobile-relay/compare/v0.21.4...v0.22.0
 [0.21.2]: https://github.com/0cv/herdr-mobile-relay/compare/v0.21.1...v0.21.2
 [0.21.1]: https://github.com/0cv/herdr-mobile-relay/compare/v0.21.0...v0.21.1
 [0.21.0]: https://github.com/0cv/herdr-mobile-relay/compare/v0.20.11...v0.21.0
