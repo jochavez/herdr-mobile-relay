@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1336,6 +1337,10 @@ func TestProductionEventInventoryRecoveryDrainsRefreshAcrossReconnect(t *testing
 	pollReady := make(chan struct{})
 	pollFailed := make(chan struct{})
 	var inventoryCalls atomic.Int32
+	// The relay may still have an inventory poll in flight when the test
+	// cancels its context; that poll's connection is torn down mid-request,
+	// which the fake must not report as a server failure once shutdown began.
+	var shuttingDown atomic.Bool
 	serverDone := make(chan error, 1)
 	go func() {
 		var serveErr error
@@ -1407,6 +1412,10 @@ func TestProductionEventInventoryRecoveryDrainsRefreshAcrossReconnect(t *testing
 				}
 			}()
 			if serveErr != nil {
+				if shuttingDown.Load() && isConnectionTeardown(serveErr) {
+					serveErr = nil
+					continue
+				}
 				return
 			}
 		}
@@ -1622,6 +1631,7 @@ func TestProductionEventInventoryRecoveryDrainsRefreshAcrossReconnect(t *testing
 		}
 	}
 	latest.CloseNow()
+	shuttingDown.Store(true)
 	cancel()
 	select {
 	case <-pollDone:
@@ -3407,4 +3417,12 @@ func TestUnchangedPaneResponseSuppressesTerminalContent(t *testing.T) {
 	if changed != nil {
 		t.Fatalf("changed terminal content was suppressed: %#v", changed)
 	}
+}
+
+// isConnectionTeardown reports the errors a fake Herdr socket sees when the
+// relay abandons a request because its context was cancelled.
+func isConnectionTeardown(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, net.ErrClosed)
 }
